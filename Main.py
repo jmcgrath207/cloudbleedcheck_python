@@ -2,8 +2,18 @@ import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 import re
 import socket
+import zipfile
+import tempfile
 
 soup = BeautifulSoup(open("Export.html"))
+r = requests.get('https://github.com/pirate/sites-using-cloudflare/archive/master.zip')
+
+with tempfile.NamedTemporaryFile() as temp:
+    temp.write(r.content)
+    temp.flush()
+    zip_ref = zipfile.ZipFile(temp.name, 'r')
+    read = zip_ref.read(zip_ref.filelist[5].filename)
+    read = read.split(b'\n')
 
 for br in soup.findAll('br'):
     next = br.nextSibling # Grabs Nested Br text
@@ -15,13 +25,10 @@ for br in soup.findAll('br'):
         text = re.sub(r'.*:\/\/|\/.*','',next[0])
         try:
             if bool(socket.gethostbyname(text)):
-                r = requests.get('http://cloudbleedcheck.com/?domain=' + text)
-                matched_soup = BeautifulSoup(r.content)
-                check_if = matched_soup.findAll("p", id= "result-msg")
-                if str(check_if[0].contents[0]) == "This domain name is affected":
-                    print(str(check_if[0].contents[0]) + ": " + text)
+                if str.encode(text) in read and not text == '':
+                    print("This domain name is affected: "  + text)
             else:
-                print("Did not respond " + text)
+                print("Did not respond dns lookup " + text)
         except:
             pass # used to pass notes that are in the password store
 
